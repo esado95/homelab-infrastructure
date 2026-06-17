@@ -6,10 +6,10 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      # состояние уведомителя (кого уже уведомили), чтобы не слать повторно
+      # état du notificateur (qui a déjà été notifié) pour éviter les envois en double
       - /opt/docker/data/access-approve:/data
     networks:
-      - proxy   # на этой сети живут Caddy и Keycloak -> взаимная доступность
+      - proxy   # Caddy et Keycloak vivent sur ce réseau -> accessibilité mutuelle
 
 networks:
   proxy:

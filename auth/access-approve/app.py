@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Homelab Approve — мини-сервис одобрения регистраций.
+Homelab Approve — mini-service d'approbation des inscriptions.
 
-Зачем он нужен:
-  * Доступ в Jellyfin закрыт ролью `media` (role-gating в SSO-плагине).
-  * Новый человек регистрируется в Keycloak, но роли `media` у него нет → внутрь не пускают.
-  * Этот сервис показывает админу «ожидающих» и шлёт письмо со ссылками
-    «Одобрить» / «Отклонить».
-      - Одобрить  = выдать роль `media` (доступ открывается).
-      - Отклонить = отключить аккаунт.
-  * ВСЕ действия — только после входа админа через Keycloak (login-gated).
-    Даже если ссылка из письма утечёт — без твоего входа она бесполезна.
+À quoi il sert :
+  * L'accès à Jellyfin est fermé par le rôle `media` (role-gating dans le plugin SSO).
+  * Une nouvelle personne s'inscrit dans Keycloak, mais sans le rôle `media` → elle n'entre pas.
+  * Ce service montre à l'admin les « en attente » et envoie un e-mail avec les liens
+    « Approuver » / « Refuser ».
+      - Approuver = attribuer le rôle `media` (l'accès s'ouvre).
+      - Refuser   = désactiver le compte.
+  * TOUTES les actions ne sont possibles qu'après la connexion de l'admin via Keycloak (login-gated).
+    Même si un lien de l'e-mail fuit — sans ta connexion il est inutile.
 """
 
 import os, hmac, hashlib, time, json, threading, smtplib, ssl, logging
@@ -28,15 +28,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 
 # ---------------------------------------------------------------------------
-# Конфигурация (из переменных окружения, см. .env)
+# Configuration (depuis les variables d'environnement, voir .env)
 # ---------------------------------------------------------------------------
 def env(name, default=None, required=False):
     v = os.environ.get(name, default)
     if required and not v:
-        raise RuntimeError(f"Не задана переменная окружения {name}")
+        raise RuntimeError(f"Variable d'environnement non définie : {name}")
     return v
 
-PUBLIC_ISSUER    = env("OIDC_ISSUER", "https://auth.example.com/realms/homelab")  # вход в браузере
+PUBLIC_ISSUER    = env("OIDC_ISSUER", "https://auth.example.com/realms/homelab")  # connexion dans le navigateur
 INTERNAL_KC      = env("KC_INTERNAL", "http://keycloak:8080")                       # server-to-server
 REALM            = env("KC_REALM", "homelab")
 CLIENT_ID        = env("OIDC_CLIENT_ID", "access-approve")
@@ -47,10 +47,10 @@ ROLE_NAME        = env("ROLE_NAME", "media")
 ADMIN_USERS      = [u.strip() for u in env("ADMIN_USERS", "admin").split(",") if u.strip()]
 SIGN_KEY         = env("SIGN_KEY", required=True).encode()
 FLASK_SECRET     = env("FLASK_SECRET", required=True)
-LINK_TTL         = int(env("LINK_TTL_SECONDS", "604800"))   # срок жизни ссылки, 7 дней
+LINK_TTL         = int(env("LINK_TTL_SECONDS", "604800"))   # durée de vie du lien, 7 jours
 REQUIRE_VERIFIED = env("REQUIRE_EMAIL_VERIFIED", "true").lower() == "true"
 
-# SMTP — необязательно. Без него уведомитель просто молчит (сервис всё равно работает).
+# SMTP — facultatif. Sans lui, le notificateur reste silencieux (le service fonctionne quand même).
 SMTP_HOST = env("SMTP_HOST")
 SMTP_PORT = int(env("SMTP_PORT", "587"))
 SMTP_USER = env("SMTP_USER")
@@ -63,7 +63,7 @@ STATE_FILE = env("STATE_FILE", "/data/notified.json")
 
 
 # ---------------------------------------------------------------------------
-# OIDC-клиент (вход админа) + админский токен (выдача роли)
+# Client OIDC (connexion admin) + token admin (attribution du rôle)
 # ---------------------------------------------------------------------------
 oauth = OAuth()
 oauth.register(
@@ -75,7 +75,7 @@ oauth.register(
 )
 
 def admin_token():
-    """Токен сервисного аккаунта (client_credentials) для Admin REST API."""
+    """Token du compte de service (client_credentials) pour l'Admin REST API."""
     r = requests.post(
         f"{INTERNAL_KC}/realms/{REALM}/protocol/openid-connect/token",
         data={"grant_type": "client_credentials",
@@ -117,7 +117,7 @@ def disable_user(uid):
     r.raise_for_status()
 
 def list_pending():
-    """Ожидающие = включены, не сервисные, не админы, (по желанию) с подтверждённым email, без роли media."""
+    """En attente = activés, non service-account, non admins, (optionnellement) e-mail vérifié, sans le rôle media."""
     pending = []
     for u in kc_get("/users", max=1000, briefRepresentation="false"):
         if not u.get("enabled"):                       continue
@@ -131,7 +131,7 @@ def list_pending():
 
 
 # ---------------------------------------------------------------------------
-# Подпись ссылок (HMAC) — чтобы ссылку нельзя было подделать/подменить пользователя
+# Signature des liens (HMAC) — pour qu'un lien ne puisse pas être falsifié / l'utilisateur substitué
 # ---------------------------------------------------------------------------
 def sign(action, uid, exp):
     return hmac.new(SIGN_KEY, f"{action}:{uid}:{exp}".encode(), hashlib.sha256).hexdigest()
@@ -153,7 +153,7 @@ def valid_link(action, uid, exp, sig):
 
 
 # ---------------------------------------------------------------------------
-# Маршруты (всё под префиксом /_access-approve)
+# Routes (tout sous le préfixe /_access-approve)
 # ---------------------------------------------------------------------------
 bp = Blueprint("bp", __name__, url_prefix=URL_PREFIX)
 
@@ -161,7 +161,7 @@ def current_user():
     return session.get("user")
 
 def require_admin():
-    """Возвращает redirect/abort, если не залогинен или не админ; иначе None."""
+    """Renvoie redirect/abort si non connecté ou non admin ; sinon None."""
     u = current_user()
     if not u:
         session["next"] = request.url
@@ -200,15 +200,15 @@ def approve():
         return r
     uid, exp, sig = request.args.get("u"), request.args.get("exp"), request.args.get("sig")
     if not valid_link("approve", uid, exp, sig):
-        return render_template_string(PAGE_RESULT, ok=False, msg="Ссылка недействительна или истекла."), 400
+        return render_template_string(PAGE_RESULT, ok=False, msg="Lien invalide ou expiré."), 400
     try:
         u = get_user(uid)
         grant_role(uid)
     except Exception as e:
         log.exception("approve failed")
-        return render_template_string(PAGE_RESULT, ok=False, msg=f"Ошибка: {e}"), 500
+        return render_template_string(PAGE_RESULT, ok=False, msg=f"Erreur : {e}"), 500
     return render_template_string(PAGE_RESULT, ok=True,
-                                  msg=f"Пользователь «{u.get('username')}» одобрен — доступ открыт.")
+                                  msg=f"Utilisateur « {u.get('username')} » approuvé — accès ouvert.")
 
 @bp.route("/deny")
 def deny():
@@ -216,15 +216,15 @@ def deny():
         return r
     uid, exp, sig = request.args.get("u"), request.args.get("exp"), request.args.get("sig")
     if not valid_link("deny", uid, exp, sig):
-        return render_template_string(PAGE_RESULT, ok=False, msg="Ссылка недействительна или истекла."), 400
+        return render_template_string(PAGE_RESULT, ok=False, msg="Lien invalide ou expiré."), 400
     try:
         u = get_user(uid)
         disable_user(uid)
     except Exception as e:
         log.exception("deny failed")
-        return render_template_string(PAGE_RESULT, ok=False, msg=f"Ошибка: {e}"), 500
+        return render_template_string(PAGE_RESULT, ok=False, msg=f"Erreur : {e}"), 500
     return render_template_string(PAGE_RESULT, ok=True,
-                                  msg=f"Пользователь «{u.get('username')}» отклонён (аккаунт отключён).")
+                                  msg=f"Utilisateur « {u.get('username')} » refusé (compte désactivé).")
 
 @bp.route("/health")
 def health():
@@ -232,7 +232,7 @@ def health():
 
 
 # ---------------------------------------------------------------------------
-# Уведомитель: периодически ищет новых ожидающих и шлёт письмо
+# Notificateur : recherche périodiquement les nouveaux en attente et envoie un e-mail
 # ---------------------------------------------------------------------------
 def load_state():
     try:
@@ -251,11 +251,11 @@ def save_state(s):
 
 def send_email(subject, html, to):
     if not (SMTP_HOST and to):
-        log.info("SMTP не настроен или нет получателя — письмо пропущено (%s)", subject)
+        log.info("SMTP non configuré ou pas de destinataire — e-mail ignoré (%s)", subject)
         return
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = subject, SMTP_FROM, to
-    msg.set_content("Откройте письмо в HTML-режиме.")
+    msg.set_content("Ouvrez cet e-mail en mode HTML.")
     msg.add_alternative(html, subtype="html")
     ctx = ssl.create_default_context()
     if SMTP_MODE == "ssl":
@@ -272,10 +272,10 @@ def send_email(subject, html, to):
             s.send_message(msg)
 
 def notifier_loop(app):
-    log.info("Уведомитель запущен (интервал %ss, получатель: %s)", POLL_INTERVAL, NOTIFY_TO or "не задан")
+    log.info("Notificateur démarré (intervalle %ss, destinataire : %s)", POLL_INTERVAL, NOTIFY_TO or "non défini")
     while True:
         try:
-            with app.app_context():           # render_template_string требует контекст приложения
+            with app.app_context():           # render_template_string nécessite le contexte d'application
                 notified = load_state()
                 for u in list_pending():
                     if u["id"] in notified:
@@ -283,9 +283,9 @@ def notifier_loop(app):
                     html = render_template_string(MAIL_HTML, u=u,
                                 approve=make_link("approve", u["id"]),
                                 deny=make_link("deny", u["id"]))
-                    send_email(f"Homelab — новая заявка: {u.get('username')}", html, NOTIFY_TO)
+                    send_email(f"Homelab — nouvelle demande : {u.get('username')}", html, NOTIFY_TO)
                     notified.add(u["id"])
-                    log.info("Уведомление по пользователю %s", u.get("username"))
+                    log.info("Notification pour l'utilisateur %s", u.get("username"))
                 save_state(notified)
         except Exception:
             log.exception("notifier loop error")
@@ -293,7 +293,7 @@ def notifier_loop(app):
 
 
 # ---------------------------------------------------------------------------
-# Шаблоны (простые, в стиле Homelab)
+# Templates (simples, dans le style Homelab)
 # ---------------------------------------------------------------------------
 _BASE_CSS = """
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0e0e12;color:#e8e8ee;margin:0;padding:2rem;}
@@ -305,18 +305,18 @@ _BASE_CSS = """
   .gold{color:#e8c87a;}
 """
 
-PAGE_INDEX = """<!doctype html><meta charset="utf-8"><title>Homelab — одобрение</title>
+PAGE_INDEX = """<!doctype html><meta charset="utf-8"><title>Homelab — approbation</title>
 <style>""" + _BASE_CSS + """</style>
 <div class="card">
-  <h1>🎬 Homelab — <span class="gold">одобрение доступа</span></h1>
-  <p class="muted">Вошёл как <b>{{ user.preferred_username }}</b>. Ожидают одобрения: {{ pending|length }}.</p>
-  {% if not pending %}<p class="muted">Сейчас никто не ждёт одобрения. 👌</p>{% endif %}
+  <h1>🎬 Homelab — <span class="gold">approbation des accès</span></h1>
+  <p class="muted">Connecté en tant que <b>{{ user.preferred_username }}</b>. En attente d'approbation : {{ pending|length }}.</p>
+  {% if not pending %}<p class="muted">Personne n'attend d'approbation pour le moment. 👌</p>{% endif %}
   {% for u in pending %}
     <div class="u">
       <div><b>{{ u.username }}</b><br><span class="muted">{{ u.email or '—' }}</span></div>
       <div>
-        <a class="btn ok" href="{{ make_link('approve', u.id) }}">Одобрить</a>
-        <a class="btn no" href="{{ make_link('deny', u.id) }}">Отклонить</a>
+        <a class="btn ok" href="{{ make_link('approve', u.id) }}">Approuver</a>
+        <a class="btn no" href="{{ make_link('deny', u.id) }}">Refuser</a>
       </div>
     </div>
   {% endfor %}
@@ -327,24 +327,24 @@ PAGE_RESULT = """<!doctype html><meta charset="utf-8"><title>Homelab</title>
 <div class="card">
   <h1>{{ '✅' if ok else '⚠️' }} Homelab</h1>
   <p>{{ msg }}</p>
-  <p><a class="btn ok" href="{{ url_for('bp.index') }}">К списку заявок</a></p>
+  <p><a class="btn ok" href="{{ url_for('bp.index') }}">Vers la liste des demandes</a></p>
 </div>"""
 
 MAIL_HTML = """<div style="font-family:system-ui,sans-serif;background:#0e0e12;color:#e8e8ee;padding:24px;border-radius:12px;max-width:520px;">
-  <h2 style="color:#e8c87a;margin:0 0 8px;">🎬 Homelab — новая заявка</h2>
-  <p style="color:#b8b8c4;">Пользователь хочет получить доступ:</p>
+  <h2 style="color:#e8c87a;margin:0 0 8px;">🎬 Homelab — nouvelle demande</h2>
+  <p style="color:#b8b8c4;">Un utilisateur souhaite obtenir l'accès :</p>
   <p style="font-size:1.1rem;"><b>{{ u.username }}</b><br><span style="color:#9a9aa8;">{{ u.email or '—' }}</span></p>
   <p style="margin-top:18px;">
-    <a href="{{ approve }}" style="background:#1d9e75;color:#04342c;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:8px;">✅ Одобрить</a>
+    <a href="{{ approve }}" style="background:#1d9e75;color:#04342c;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:8px;">✅ Approuver</a>
     &nbsp;&nbsp;
-    <a href="{{ deny }}" style="background:#3a2230;color:#f0a0b0;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:8px;">⛔ Отклонить</a>
+    <a href="{{ deny }}" style="background:#3a2230;color:#f0a0b0;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:8px;">⛔ Refuser</a>
   </p>
-  <p style="color:#6a6a78;font-size:.8rem;margin-top:18px;">Ссылка действует ограниченное время и сработает только после твоего входа.</p>
+  <p style="color:#6a6a78;font-size:.8rem;margin-top:18px;">Le lien est valable un temps limité et ne fonctionnera qu'après ta connexion.</p>
 </div>"""
 
 
 # ---------------------------------------------------------------------------
-# Приложение
+# Application
 # ---------------------------------------------------------------------------
 def create_app():
     app = Flask(__name__)
@@ -357,7 +357,7 @@ def create_app():
         SESSION_COOKIE_SAMESITE="Lax",
         PREFERRED_URL_SCHEME="https",
     )
-    # за реверс-прокси Caddy: доверяем X-Forwarded-* (схема/хост/префикс)
+    # derrière le reverse proxy Caddy : on fait confiance à X-Forwarded-* (schéma/hôte/préfixe)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     oauth.init_app(app)
     app.register_blueprint(bp)

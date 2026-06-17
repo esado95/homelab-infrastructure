@@ -8,5 +8,5 @@ COPY app.py .
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8090
 
-# 1 воркер (чтобы уведомитель был в единственном экземпляре) + потоки на запросы
+# 1 worker (pour que le notificateur reste en exemplaire unique) + threads pour les requêtes
 CMD ["gunicorn", "-w", "1", "--threads", "4", "-b", "0.0.0.0:8090", "app:app"]

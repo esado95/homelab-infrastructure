@@ -2,14 +2,14 @@
     email admin@example.com
 }
 
-# Домен Jellyfin, доступен из интернета
+# Domaine Jellyfin, accessible depuis Internet
 example.com {
 
     encode gzip zstd
 
-    # Заголовки безопасности
-    # X-Frame-Options УБРАН: приложение Jellyfin на ТВ (webOS) грузит клиент в iframe,
-    # а SAMEORIGIN это блокировал (ошибка -27). Удаляем его и у ответов апстрима.
+    # En-têtes de sécurité
+    # X-Frame-Options RETIRÉ : l'app Jellyfin sur TV (webOS) charge le client dans une iframe,
+    # et SAMEORIGIN bloquait cela (erreur -27). On le retire aussi des réponses de l'upstream.
     header {
         -X-Frame-Options
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
@@ -17,19 +17,19 @@ example.com {
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
-    # Отключаем кэширование интерфейса Jellyfin
+    # On désactive la mise en cache de l'interface Jellyfin
     @jellyfinIndex path /web/index.html /web/
     header @jellyfinIndex Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
 
     @jellyfinSw path /web/serviceworker.js /web/service-worker.js /web/sw.js
     header @jellyfinSw Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
 
-    # Бренд-CSS без кэша -> правки темы (Enhanced-теги, цвета) подхватываются сразу на всех клиентах
+    # CSS de branding sans cache -> les modifications du thème (tags Enhanced, couleurs) sont prises en compte immédiatement sur tous les clients
     @brandingCss path /Branding/Css
     header @brandingCss Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
 
-    # Выход: страница, которая чистит токен Jellyfin (localStorage + сервер),
-    # затем выходит из Keycloak и ведёт на страницу входа.
+    # Déconnexion : page qui efface le token Jellyfin (localStorage + serveur),
+    # puis déconnecte de Keycloak et redirige vers la page de connexion.
     @logout path /logout /logout/
     handle @logout {
         root * /srv/login-page
@@ -38,14 +38,14 @@ example.com {
         file_server
     }
 
-    # Экран входа для телевизора (QR + Quick Connect)
+    # Écran de connexion pour la TV (QR + Quick Connect)
     handle /tv {
         root * /srv/login-page
         rewrite * /tv.html
         header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
         file_server
     }
-    # Страница подтверждения входа ТВ (открывается на телефоне по скану QR)
+    # Page de confirmation de connexion TV (ouverte sur le téléphone via le scan du QR)
     handle /tvlink {
         root * /srv/login-page
         rewrite * /tvlink.html
@@ -53,28 +53,28 @@ example.com {
         file_server
     }
 
-    # Приветственная страница Homelab -- ТОЛЬКО на корне сайта "/".
-    # Браузерные посетители видят гейт; нативные приложения Jellyfin
-    # никогда не запрашивают "/" (они идут на /web, /System, /Users, /socket, API...),
-    # поэтому они не затрагиваются.
+    # Page d'accueil Homelab -- UNIQUEMENT sur la racine du site "/".
+    # Les visiteurs via navigateur voient le portail ; les applications natives Jellyfin
+    # ne demandent jamais "/" (elles vont sur /web, /System, /Users, /socket, API...),
+    # elles ne sont donc pas impactées.
     handle / {
         root * /srv/login-page
         file_server
     }
 
-    # Homelab approve (login-gated), hidden path
+    # Homelab approve (login-gated), chemin caché
     @approve path /_access-approve /_access-approve/*
     handle @approve {
         reverse_proxy access-approve:8090
     }
 
-    # Всё остальное -> Jellyfin (веб-клиент, SSO-плагин, API, websocket)
+    # Tout le reste -> Jellyfin (client web, plugin SSO, API, websocket)
     handle {
         reverse_proxy jellyfin:8096
     }
 }
 
-# Radarr, доступен только из домашней сети и Tailscale
+# Radarr, accessible uniquement depuis le réseau local et Tailscale
 radarr.local {
     @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
     handle @allowed {
@@ -137,7 +137,7 @@ sonarr.local {
 }
 
 
-# Keycloak -- провайдер идентичности
+# Keycloak -- fournisseur d'identité
 auth.example.com {
     encode gzip zstd
 
@@ -150,7 +150,7 @@ auth.example.com {
     reverse_proxy keycloak:8080
 }
 
-# Админ-хост Keycloak, доступен только из домашней сети и Tailscale
+# Hôte d'administration Keycloak, accessible uniquement depuis le réseau local et Tailscale
 kc.example.com {
     @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
 
