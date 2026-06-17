@@ -1,0 +1,7 @@
+# Pas de barre "Languages" sur GitHub : ce dépôt est de l'INFRASTRUCTURE
+# (Docker Compose, reverse proxy, configs) — pas un projet de code.
+# On exclut des statistiques Linguist les seuls fichiers qu'il compterait.
+# (Le code reste visible et navigable dans le dépôt — seule la stat disparaît.)
+auth/access-approve/app.py linguist-vendored
+auth/access-approve/requirements.txt linguist-vendored
+auth/access-approve/Dockerfile linguist-vendored

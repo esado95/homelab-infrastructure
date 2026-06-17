@@ -1,0 +1,45 @@
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
+      - "993"
+    volumes:
+      - /opt/docker/data/jellyfin/config:/config
+      - /opt/docker/data/jellyfin/cache:/cache
+      - /srv/media-cache/library:/media
+      - /srv/media-cache/jellyfin-transcodes:/transcodes
+      - /opt/docker/config/jellyfin-brand/favicon.ico:/usr/share/jellyfin/web/favicon.bc8d51405ec040305a87.ico:ro
+      - /opt/docker/config/jellyfin-brand/manifest.json:/usr/share/jellyfin/web/manifest.json:ro
+      - /opt/docker/config/jellyfin-brand/index.html:/usr/share/jellyfin/web/index.html:ro
+      - /opt/docker/config/jellyfin-brand/login-page-guard.js:/usr/share/jellyfin/web/login-page-guard.js:ro
+      - /opt/docker/config/jellyfin-brand/brand-logo.png:/usr/share/jellyfin/web/brand-logo.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-32.png:/usr/share/jellyfin/web/32px.7b8ef9809145cfec0aa6.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-40.png:/usr/share/jellyfin/web/40px.106a7abc109fb5e78742.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-512.png:/usr/share/jellyfin/web/icon-transparent.baba78f2a106d9baee83.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-512.png:/usr/share/jellyfin/web/notificationicon.d6ecf2254db85ff3b545.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-144.png:/usr/share/jellyfin/web/touchicon144.39209dd2362c0db7c673.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-180.png:/usr/share/jellyfin/web/touchicon.f5bbb798cb2c65908633.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-114.png:/usr/share/jellyfin/web/favicons/touchicon114.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-512.png:/usr/share/jellyfin/web/favicons/touchicon512.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-144.png:/usr/share/jellyfin/web/favicons/touchicon144.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-180.png:/usr/share/jellyfin/web/favicons/touchicon.png:ro
+      - /opt/docker/config/jellyfin-brand/brand-icon-72.png:/usr/share/jellyfin/web/favicons/touchicon72.png:ro
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true

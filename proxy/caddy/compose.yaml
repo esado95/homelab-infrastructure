@@ -1,0 +1,19 @@
+services:
+  caddy:
+    image: caddy:2.10.2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/docker/config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/docker/data/caddy:/data
+      - /opt/docker/data/caddy-config:/config
+      - /opt/docker/config/login-page:/srv/login-page:ro
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

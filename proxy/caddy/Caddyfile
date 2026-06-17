@@ -1,0 +1,162 @@
+{
+    email admin@example.com
+}
+
+# Домен Jellyfin, доступен из интернета
+example.com {
+
+    encode gzip zstd
+
+    # Заголовки безопасности
+    # X-Frame-Options УБРАН: приложение Jellyfin на ТВ (webOS) грузит клиент в iframe,
+    # а SAMEORIGIN это блокировал (ошибка -27). Удаляем его и у ответов апстрима.
+    header {
+        -X-Frame-Options
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Отключаем кэширование интерфейса Jellyfin
+    @jellyfinIndex path /web/index.html /web/
+    header @jellyfinIndex Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+
+    @jellyfinSw path /web/serviceworker.js /web/service-worker.js /web/sw.js
+    header @jellyfinSw Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+
+    # Бренд-CSS без кэша -> правки темы (Enhanced-теги, цвета) подхватываются сразу на всех клиентах
+    @brandingCss path /Branding/Css
+    header @brandingCss Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+
+    # Выход: страница, которая чистит токен Jellyfin (localStorage + сервер),
+    # затем выходит из Keycloak и ведёт на страницу входа.
+    @logout path /logout /logout/
+    handle @logout {
+        root * /srv/login-page
+        rewrite * /logout.html
+        header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        file_server
+    }
+
+    # Экран входа для телевизора (QR + Quick Connect)
+    handle /tv {
+        root * /srv/login-page
+        rewrite * /tv.html
+        header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        file_server
+    }
+    # Страница подтверждения входа ТВ (открывается на телефоне по скану QR)
+    handle /tvlink {
+        root * /srv/login-page
+        rewrite * /tvlink.html
+        header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        file_server
+    }
+
+    # Приветственная страница Homelab -- ТОЛЬКО на корне сайта "/".
+    # Браузерные посетители видят гейт; нативные приложения Jellyfin
+    # никогда не запрашивают "/" (они идут на /web, /System, /Users, /socket, API...),
+    # поэтому они не затрагиваются.
+    handle / {
+        root * /srv/login-page
+        file_server
+    }
+
+    # Homelab approve (login-gated), hidden path
+    @approve path /_access-approve /_access-approve/*
+    handle @approve {
+        reverse_proxy access-approve:8090
+    }
+
+    # Всё остальное -> Jellyfin (веб-клиент, SSO-плагин, API, websocket)
+    handle {
+        reverse_proxy jellyfin:8096
+    }
+}
+
+# Radarr, доступен только из домашней сети и Tailscale
+radarr.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy radarr:7878
+    }
+    respond "Forbidden" 403
+}
+
+# Prowlarr
+prowlarr.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy prowlarr:9696
+    }
+    respond "Forbidden" 403
+}
+
+# qBittorrent
+qbittorrent.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy qbittorrent:8081
+    }
+    respond "Forbidden" 403
+}
+
+# Grafana
+grafana.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy grafana:3000
+    }
+    respond "Forbidden" 403
+}
+
+# Portainer
+portainer.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy portainer:9443
+    }
+    respond "Forbidden" 403
+}
+
+# Jellyseerr
+jellyseerr.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy jellyseerr:5055
+    }
+    respond "Forbidden" 403
+}
+
+sonarr.local {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+    handle @allowed {
+        reverse_proxy sonarr:8989
+    }
+    respond "Forbidden" 403
+}
+
+
+# Keycloak -- провайдер идентичности
+auth.example.com {
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    reverse_proxy keycloak:8080
+}
+
+# Админ-хост Keycloak, доступен только из домашней сети и Tailscale
+kc.example.com {
+    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
+
+    handle @allowed {
+        reverse_proxy keycloak:8080
+    }
+
+    respond "Forbidden" 403
+}

@@ -1,0 +1,17 @@
+services:
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Europe/Paris
+    volumes:
+      - /opt/docker/data/jellyseerr:/app/config
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true

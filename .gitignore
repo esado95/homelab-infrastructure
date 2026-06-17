@@ -1,0 +1,11 @@
+# Secrets — ne JAMAIS committer les vrais .env
+.env
+*.env
+**/.env
+!*.env.example
+
+# Divers
+*.log
+__pycache__/
+*.pyc
+.DS_Store

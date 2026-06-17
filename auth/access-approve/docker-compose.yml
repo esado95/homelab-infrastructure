@@ -1,0 +1,16 @@
+services:
+  access-approve:
+    build: .
+    image: access-approve:latest
+    container_name: access-approve
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # состояние уведомителя (кого уже уведомили), чтобы не слать повторно
+      - /opt/docker/data/access-approve:/data
+    networks:
+      - proxy   # на этой сети живут Caddy и Keycloak -> взаимная доступность
+
+networks:
+  proxy:
+    external: true

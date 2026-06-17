@@ -1,0 +1,20 @@
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - /opt/docker/data/sonarr:/config
+      - /srv/media-cache/library/series:/series
+      - /srv/media-cache/library/anime:/anime
+      - /srv/media-cache/torrents:/downloads
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

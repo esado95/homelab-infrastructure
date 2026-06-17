@@ -1,0 +1,23 @@
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - WEBUI_PORT=8081
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+    volumes:
+      - /opt/docker/data/qbittorrent:/config
+      - /srv/media-cache/torrents:/downloads
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true

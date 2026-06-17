@@ -1,0 +1,20 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - /opt/docker/data/radarr:/config
+      - /srv/media-cache/library/films:/movies
+      - /srv/media-cache/torrents:/downloads
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true
