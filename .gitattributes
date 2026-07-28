@@ -5,3 +5,7 @@
 auth/access-approve/app.py linguist-vendored
 auth/access-approve/requirements.txt linguist-vendored
 auth/access-approve/Dockerfile linguist-vendored
+monitoring/telegram-bot/app.py linguist-vendored
+monitoring/telegram-bot/requirements.txt linguist-vendored
+monitoring/telegram-bot/Dockerfile linguist-vendored
+backup/*.sh linguist-vendored

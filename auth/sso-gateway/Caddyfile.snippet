@@ -1,0 +1,71 @@
+# =====================================================================
+#  Passerelle SSO centralisée pour les services d'administration
+#  À coller dans le `Caddyfile` principal (voir proxy/caddy/Caddyfile).
+#
+#  Chaîne : Caddy --forward_auth--> oauth2-proxy --OIDC--> Keycloak
+#  Le contrôle d'accès se fait par rôle de realm, passé en argument.
+# =====================================================================
+
+# Usage :  import ssogate <rôles autorisés> <service:port>
+#   {args[0]} = liste de rôles séparés par des virgules, préfixés `role:`
+#   {args[1]} = destination interne (nom du conteneur + port)
+(ssogate) {
+	# 1) Les routes internes de la passerelle (/oauth2/start, /callback, /auth…)
+	#    partent directement vers oauth2-proxy.
+	handle /oauth2/* {
+		reverse_proxy oauth2-proxy:4180 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Uri {uri}
+		}
+	}
+
+	# 2) Tout le reste : on demande d'abord « cette session est-elle valide,
+	#    et l'utilisateur a-t-il le bon rôle ? » avant de servir l'application.
+	handle {
+		forward_auth oauth2-proxy:4180 {
+			uri /oauth2/auth?allowed_groups={args[0]}
+			header_up X-Real-IP {remote_host}
+			# Identité validée transmise à l'application
+			copy_headers X-Auth-Request-User X-Auth-Request-Email
+
+			# 401 = pas de session -> on envoie l'utilisateur se connecter,
+			# `rd` mémorise la page demandée pour y revenir après le login.
+			@error status 401
+			handle_response @error {
+				redir * /oauth2/start?rd={scheme}://{host}{uri} 302
+			}
+		}
+		# Réponse 202 de la passerelle -> la requête continue vers le service
+		reverse_proxy {args[1]}
+	}
+}
+
+# ---------------------------------------------------------------------
+#  Exemples d'hôtes (un sous-domaine par service, wildcard DNS *.example.com)
+# ---------------------------------------------------------------------
+
+# Supervision — réservée à l'administrateur
+grafana.example.com {
+	import ssogate role:infra-admin grafana:3000
+}
+
+# Tableau de bord des services — réservé à l'administrateur
+admin.example.com {
+	import ssogate role:infra-admin homarr:7575
+}
+
+# Demandes de films/séries — ouvert aussi à la famille (rôle `media`)
+requests.example.com {
+	import ssogate role:media,role:infra-admin jellyseerr:5055
+}
+
+# Autres hôtes sur le même modèle :
+#   radarr.example.com   -> role:infra-admin  radarr:7878
+#   sonarr.example.com   -> role:infra-admin  sonarr:8989
+#   prowlarr.example.com -> role:infra-admin  prowlarr:9696
+#   qbit.example.com     -> role:infra-admin  qbittorrent:8081
+#   prom.example.com     -> role:infra-admin  prometheus:9090
+#   dockge.example.com   -> role:infra-admin  dockge:5001
+
+# Après modification :
+#   docker exec caddy caddy reload --config /etc/caddy/Caddyfile

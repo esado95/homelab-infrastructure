@@ -1,0 +1,20 @@
+services:
+  homelab-bot:
+    build: .
+    image: homelab-bot:latest
+    container_name: homelab-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Dossier des sauvegardes, en LECTURE SEULE : sert seulement à afficher
+      # la date et la taille de la dernière archive.
+      - /srv/backup/homelab:/backups:ro
+    # Volontairement PAS de /var/run/docker.sock (voir README — moindre privilège) :
+    # l'état des conteneurs vient des métriques cAdvisor via Prometheus.
+    networks:
+      # Prometheus, Jellyfin et Jellyseerr sont joignables par leur nom sur ce réseau
+      - proxy
+
+networks:
+  proxy:
+    external: true

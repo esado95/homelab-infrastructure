@@ -1,0 +1,22 @@
+# Où partent les alertes : un e-mail + un message sur mon bot Telegram.
+#
+# ⚠️ Aucun secret ici. Les ${VARIABLES} sont lues dans l'environnement du
+# conteneur Grafana (fichier `grafana.env`, non versionné — voir grafana.env.example).
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: notify-admin
+    receivers:
+      # --- 1. E-mail (SMTP configuré via GF_SMTP_* dans grafana.env) ---
+      - uid: email-admin
+        type: email
+        settings:
+          addresses: ${ALERT_EMAIL_TO}
+
+      # --- 2. Telegram : la même alerte arrive sur le téléphone ---
+      - uid: telegram-admin
+        type: telegram
+        settings:
+          bottoken: ${TG_BOT_TOKEN}
+          chatid: ${TG_CHAT_ID}

@@ -74,6 +74,19 @@ example.com {
     }
 }
 
+# =====================================================================
+#  Services d'administration
+#
+#  Chemin principal : un sous-domaine par service, derrière la passerelle SSO
+#  (Caddy -> oauth2-proxy -> Keycloak, contrôle par rôle). Le snippet `(ssogate)`
+#  et les blocs d'hôtes correspondants sont dans auth/sso-gateway/Caddyfile.snippet
+#  et se collent ici.
+#
+#  Les hôtes `*.local` ci-dessous sont l'ANCIEN chemin, conservé comme porte de
+#  secours si la passerelle tombe : ils ne sont joignables que depuis le réseau
+#  local et Tailscale, et gardent le login natif de chaque application.
+# =====================================================================
+
 # Radarr, accessible uniquement depuis le réseau local et Tailscale
 radarr.local {
     @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
@@ -106,15 +119,6 @@ grafana.local {
     @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
     handle @allowed {
         reverse_proxy grafana:3000
-    }
-    respond "Forbidden" 403
-}
-
-# Portainer
-portainer.local {
-    @allowed remote_ip 192.168.1.0/24 100.64.0.0/10
-    handle @allowed {
-        reverse_proxy portainer:9443
     }
     respond "Forbidden" 403
 }

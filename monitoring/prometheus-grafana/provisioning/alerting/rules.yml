@@ -1,0 +1,78 @@
+# Règles d'alerte versionnées.
+#
+# Ce que je surveille en priorité : le remplissage des disques. C'est la panne
+# que j'ai le plus de chances de provoquer moi-même (téléchargements + cache de
+# transcodage), et celle qui casse le plus de choses d'un coup.
+#
+# Lecture d'une règle :
+#   A = la mesure (PromQL) — ici le pourcentage d'espace LIBRE
+#   C = le seuil          — déclenche si A < seuil
+#   for: 30m              — il faut que ce soit vrai 30 minutes d'affilée,
+#                           sinon un pic de téléchargement me réveillerait pour rien.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: disk-usage
+    folder: Homelab Alerts
+    interval: 5m
+    rules:
+
+      # ── 1. Disque de la médiathèque : seuil bas, simple avertissement ──────
+      - uid: disk-media-low
+        title: "Espace faible sur la médiathèque"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: homelab-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: 100 * node_filesystem_avail_bytes{mountpoint="/srv/media-cache",fstype="ext4"} / node_filesystem_size_bytes{mountpoint="/srv/media-cache",fstype="ext4"}
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { params: [12], type: lt }
+        noDataState: NoData
+        execErrState: Error
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "Le disque de la médiathèque est presque plein : moins de 12 % d'espace libre."
+          description: "Faire le ménage dans les téléchargements, ou ajouter un disque."
+
+      # ── 2. Disque système : seuil plus haut, car s'il se remplit, TOUT tombe ──
+      #     (Docker, les bases de données, les journaux… tout vit sur « / »)
+      - uid: disk-root-low
+        title: "Espace faible sur le disque système"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: homelab-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: 100 * node_filesystem_avail_bytes{mountpoint="/",fstype="ext4"} / node_filesystem_size_bytes{mountpoint="/",fstype="ext4"}
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { params: [15], type: lt }
+        noDataState: NoData
+        execErrState: Error
+        for: 30m
+        labels: { severity: critical }
+        annotations:
+          summary: "Le disque système est presque plein : moins de 15 % d'espace libre."
+          description: "Vérifier les journaux Docker et les images inutilisées (docker system df)."

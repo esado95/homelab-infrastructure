@@ -10,6 +10,8 @@ Le cœur du divertissement : streaming et acquisition automatisée des contenus.
 | **Sonarr / Radarr** | Gestion automatisée des séries / films |
 | **qBittorrent** | Client de téléchargement |
 | **FlareSolverr** | Contournement des protections anti-bot des indexeurs |
-| **jellyfin-automation** | Petits automatismes autour de Jellyfin |
+
+> Les demandes de contenus (Jellyseerr) sont ouvertes à la famille via le rôle `media` ; les autres
+> interfaces sont réservées à l'administration — voir [`auth/sso-gateway/`](../auth/sso-gateway/).
 
 > 🔐 Aucun secret ici : les mots de passe et clés vivent dans des fichiers `.env` **non versionnés**.

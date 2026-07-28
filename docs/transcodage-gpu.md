@@ -17,8 +17,9 @@ Contrairement à une carte de bureau, une carte de laptop ne range pas son « ma
 mécanisme **ACPI** (`_ROM`). Une machine virtuelle n'a pas ce mécanisme → le pilote NVIDIA échoue
 avec l'erreur `Failed to copy vbios to system memory`.
 
-C'est un problème connu et **réputé presque insoluble** sur les GPU de laptop. Beaucoup de guides
-conseillent simplement d'acheter une carte de bureau. J'ai voulu aller au bout.
+C'est un problème connu et réputé très difficile sur les GPU de laptop : beaucoup de guides
+conseillent simplement d'acheter une carte de bureau. Comme c'était un projet d'apprentissage,
+j'ai préféré chercher.
 
 ## Le parcours du combattant (les murs, dans l'ordre)
 
@@ -78,8 +79,8 @@ Au redémarrage suivant : `nvidia-smi` affiche enfin la **Quadro P1000**. Plus d
   copier-coller une recette.
 - La « bonne » solution documentée ne marche pas toujours telle quelle : il faut **comprendre
   pourquoi** elle fonctionne pour l'adapter à son cas.
-- Et surtout : **la persévérance paie.** Ce que beaucoup déclaraient impossible, je l'ai fait
-  tourner.
+- Le reste, c'est surtout de l'obstination : j'ai avancé un mur à la fois, et beaucoup de
+  tentatives n'ont rien donné avant que ça finisse par tomber en place.
 
 > ⚠️ *Honnêteté technique :* la solution repose sur une adresse mémoire fixe issue du firmware. Si
 > je mets à jour l'UEFI ou QEMU un jour, il faudra peut-être réajuster la table ACPI. C'est noté.

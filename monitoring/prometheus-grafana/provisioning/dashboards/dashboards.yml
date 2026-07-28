@@ -1,0 +1,18 @@
+# Chargement automatique des tableaux de bord depuis un dossier.
+# Je dépose un fichier .json dans /etc/grafana/dashboards et il apparaît tout seul.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    # Grafana relit le dossier toutes les 30 s.
+    updateIntervalSeconds: 30
+    # allowUiUpdates: false -> les modifications faites à la souris ne sont pas
+    # conservées. Pour changer un panneau, je modifie le JSON. C'est le principe.
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

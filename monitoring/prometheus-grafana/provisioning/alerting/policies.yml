@@ -1,0 +1,11 @@
+# Politique de notification : qui reçoit quoi.
+# Volontairement simple — je suis le seul destinataire, donc tout part
+# vers le même point de contact.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: notify-admin
+    # Regroupe les alertes par dossier et par nom : si deux disques se
+    # remplissent en même temps, je reçois un message, pas deux.
+    group_by: ['grafana_folder', 'alertname']

@@ -1,0 +1,21 @@
+services:
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: unless-stopped
+    volumes:
+      # Dockge pilote le démon Docker de l'hôte (équivaut à un accès root : à garder derrière le SSO)
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/docker/data/dockge:/app/data
+      # Répertoire des stacks : le chemin doit être IDENTIQUE dedans et dehors,
+      # car les commandes `docker compose` sont exécutées par le démon de l'hôte.
+      - /opt/docker/compose:/opt/docker/compose
+    environment:
+      - DOCKGE_STACKS_DIR=/opt/docker/compose
+    # Pas de port publié : accès uniquement via Caddy + portail SSO (rôle infra-admin).
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

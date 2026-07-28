@@ -1,0 +1,27 @@
+# Exportateur de métriques GPU NVIDIA.
+#
+# Il lance `nvidia-smi` régulièrement et publie le résultat au format Prometheus
+# sur le port 9835 (température, charge, mémoire vidéo, sessions d'encodage).
+#
+# Deux points qui m'ont coûté du temps :
+#   - `runtime: nvidia` est indispensable, sinon le conteneur ne voit pas la carte ;
+#   - NVIDIA_DRIVER_CAPABILITIES=utility suffit : on ne fait que LIRE des compteurs,
+#     pas de calcul ni de vidéo, donc inutile de demander plus de droits.
+#
+# Prérequis sur l'hôte : pilote NVIDIA + NVIDIA Container Toolkit installés.
+services:
+  nvidia-exporter:
+    image: utkuozdemir/nvidia_gpu_exporter:1.3.2
+    container_name: nvidia-exporter
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=utility
+    # Aucun port publié : seul Prometheus, sur le même réseau, vient le lire.
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

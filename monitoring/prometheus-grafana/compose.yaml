@@ -6,6 +6,8 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      # 15 jours d'historique : assez pour comprendre une panne, pas assez
+      # pour saturer le disque.
       - "--storage.tsdb.retention.time=15d"
     volumes:
       - /opt/docker/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -30,6 +32,8 @@ services:
     image: ghcr.io/google/cadvisor:0.57.0
     container_name: cadvisor
     restart: unless-stopped
+    # privileged : nécessaire pour lire les cgroups de tous les conteneurs.
+    # C'est un compromis que j'assume, mais il reste sur ma liste à revoir.
     privileged: true
     volumes:
       - /:/rootfs:ro
@@ -45,12 +49,22 @@ services:
     image: grafana/grafana:12.3.0
     container_name: grafana
     restart: unless-stopped
+    # SMTP, SSO Keycloak, jeton du bot Telegram — fichier NON versionné.
+    # Modèle : grafana.env.example
+    env_file:
+      - grafana.env
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      # Le mot de passe admin vient de `grafana.env` : le déclarer aussi ici
+      # l'écraserait par une chaîne vide quand la variable n'existe pas dans le shell.
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - /opt/docker/data/grafana:/var/lib/grafana
+      # Ces deux montages sont le cœur de la « supervision as code » :
+      # source de données, tableaux de bord et alertes arrivent par fichiers.
+      # En lecture seule : Grafana les applique, il ne les réécrit pas.
+      - /opt/docker/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /opt/docker/config/grafana/dashboards:/etc/grafana/dashboards:ro
     networks:
       - default
       - proxy

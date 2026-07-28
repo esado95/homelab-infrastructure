@@ -1,0 +1,27 @@
+# Configuration Prometheus — qui est interrogé, et à quelle fréquence.
+# Les noms de « job » servent ensuite d'étiquettes dans les tableaux de bord
+# et les règles d'alerte : je les garde stables.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus se surveille lui-même
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  # Machine : CPU, RAM, disques, réseau
+  - job_name: "homelab-node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Conteneurs Docker : consommation par conteneur
+  - job_name: "homelab-containers"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # GPU NVIDIA : température, charge, mémoire vidéo, sessions d'encodage
+  - job_name: "homelab-gpu"
+    static_configs:
+      - targets: ["nvidia-exporter:9835"]

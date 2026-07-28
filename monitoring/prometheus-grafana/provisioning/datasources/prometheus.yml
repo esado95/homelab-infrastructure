@@ -1,0 +1,18 @@
+# Source de données Prometheus, déclarée en fichier (« as code »).
+# Grafana la recrée au démarrage : rien à cliquer dans l'interface.
+apiVersion: 1
+
+datasources:
+  - name: prometheus
+    type: prometheus
+    # L'uid est FIXE et choisi par moi : les tableaux de bord et les règles
+    # d'alerte y font référence. S'il change, tout se casse.
+    uid: homelab-prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    # editable: false -> impossible de la modifier depuis l'interface,
+    # ce qui évite que le fichier et la réalité divergent.
+    editable: false
+    jsonData:
+      timeInterval: 15s

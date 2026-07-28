@@ -1,0 +1,19 @@
+services:
+  homarr:
+    # Version épinglée volontairement : le projet évolue vite et un `latest`
+    # peut casser le tableau de bord au redémarrage suivant.
+    image: ghcr.io/homarr-labs/homarr:v1.72.0
+    container_name: homarr
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Base SQLite + icônes + certificats de confiance
+      - /opt/docker/data/homarr:/appdata
+    # Aucun port publié : le portail n'est joignable qu'à travers Caddy,
+    # lui-même protégé par le portail SSO (rôle infra-admin).
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
