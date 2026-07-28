@@ -30,19 +30,130 @@ Chaque rubrique se termine par l'heure de mise à jour et deux boutons : **⬅�
 Deux commandes existent aussi : `/menu` (ouvrir le pupitre) et `/etat` (raccourci vers
 la rubrique Serveur).
 
-**Exemple de rendu** — rubrique Serveur :
+### 🔌 D'où viennent les données
+
+```mermaid
+flowchart LR
+    T["Telegram<br/><small>long polling</small>"] <--> B["Bot<br/><small>Python · asyncio</small>"]
+    B -->|PromQL| P["Prometheus"]
+    P --- NE["node-exporter<br/><small>système</small>"]
+    P --- CA["cAdvisor<br/><small>conteneurs</small>"]
+    P --- GX["exportateur NVIDIA<br/><small>GPU</small>"]
+    B -->|API| J["Jellyfin"]
+    B -->|API| JS["Jellyseerr"]
+    B -->|lecture ro| S["dossier des<br/>sauvegardes"]
+    B -->|HTTP| W["adresses publiques"]
+```
+
+Le bot **n'ouvre aucun port** : c'est lui qui interroge Telegram. Il joint les services par
+leur **nom de conteneur** sur le réseau Docker interne — jamais par leur adresse publique,
+qui passerait par la passerelle SSO et renverrait une page de connexion au lieu de données.
+
+### 📋 Exemples de rendu
+
+<table>
+<tr><td>
+
+**📊 Serveur**
 
 ```
 📊 Serveur homelab
 
 ⏱ En ligne : 12 j 4 h 37 min
 🧠 Processeur : 8 %  ▰▱▱▱▱▱▱▱▱▱
-⚙️ Charge : 0.42 / 0.51  (7 % de 6 cœurs)
-💭 Mémoire : 6.8 Gio / 11.7 Gio  ▰▰▰▰▰▰▱▱▱▱
+⚙️ Charge : 0.42 / 0.51
+   (7 % de 6 cœurs)
+💭 Mémoire : 6.8 / 11.7 Gio
+   ▰▰▰▰▰▰▱▱▱▱
 ♻️ Swap : 0 %
 
 màj 21:14:03
 ```
+
+</td><td>
+
+**💾 Disques**
+
+```
+💾 Disques
+
+Système
+▰▰▰▰▰▰▱▱▱▱ 58 %
+libre 25.4 Gio sur 60.0 Gio
+
+Médiathèque ⚠️
+▰▰▰▰▰▰▰▰▱▱ 79 %
+libre 66.8 Gio sur 316.9 Gio
+
+Sauvegardes
+▰▱▱▱▱▱▱▱▱▱ 5 %
+libre 139.0 Gio sur 157.4 Gio
+```
+
+</td></tr>
+<tr><td>
+
+**🎮 Carte graphique**
+
+```
+🎮 Carte graphique
+
+⚡ Utilisation : 34 %  ▰▰▰▱▱▱▱▱▱▱
+🧠 Mémoire vidéo : 412 / 4096 Mio
+🌡 Température : 61 °C
+🔌 Consommation : 27 W
+🎞 Transcodages actifs : 1
+```
+
+</td><td>
+
+**🎬 En lecture**
+
+```
+🎬 En lecture (2)
+
+▶️ utilisateur1 — Un film · 42 %
+    Salon (TV) · lecture directe
+⏸ utilisateur2 — Une série — S02E04 · 8 %
+    Téléphone · transcodage
+```
+
+</td></tr>
+<tr><td>
+
+**💽 Sauvegardes**
+
+```
+💽 Sauvegardes ciblées
+
+🟢 Dernière :
+   sauvegarde-20260728_0330.tar.gz
+   88 Mio · il y a 9 h
+
+📦 Archives conservées : 14
+📊 Volume total : 1 208 Mio
+
+Quotidien 3 h 30 · copie 4 h 15
+```
+
+</td><td>
+
+**🌐 Services**
+
+```
+🌐 Disponibilité des services
+
+🟢 Site / Jellyfin — 200 · 84 ms
+🟢 Keycloak — 200 · 121 ms
+🟢 Portail — 302 · 45 ms
+🔴 Demandes — ConnectError
+```
+
+</td></tr>
+</table>
+
+Le bouton **🔎 Tout vérifier** enchaîne serveur, disques, conteneurs et disponibilité en un
+seul message — les quatre requêtes partent **en parallèle**, la réponse arrive en une seconde.
 
 ---
 
@@ -56,6 +167,39 @@ Une tâche de fond compare **chaque minute** la liste des conteneurs actifs :
 
 Les deux relevés évitent le bruit : un simple redémarrage ou une mise à jour d'image
 ne déclenche pas d'alerte.
+
+```
+🔴 Conteneur jellyfin hors ligne (~2 min) ⚠️ service essentiel
+🟢 Conteneur jellyfin de nouveau actif
+```
+
+C'est la seule chose que le bot envoie **de lui-même** : le reste, il attend qu'on le lui
+demande. Et comme le même jeton sert de canal de notification à Grafana, les alertes de
+remplissage des disques arrivent dans la même conversation — un seul endroit à regarder.
+
+---
+
+## 🧠 Quelques choix techniques
+
+| Choix | Pourquoi |
+|---|---|
+| **Message modifié sur place** plutôt qu'un nouveau message | la conversation ne s'allonge pas ; « Actualiser » remplace le contenu et non la page |
+| **Requêtes en parallèle** (`asyncio.gather`) pour « Tout vérifier » et la disponibilité | quatre appels séquentiels prendraient plusieurs secondes |
+| **Erreurs isolées par rubrique** | si Jellyseerr ne répond pas, seule sa rubrique affiche `⚠️`, le reste du pupitre continue de fonctionner |
+| **Barres en caractères** (`▰▱`) plutôt que des images | lisible partout, y compris en notification, et zéro dépendance graphique |
+| **Deux relevés avant d'alerter** | évite une alerte à chaque mise à jour d'image |
+| **Filtrage du chat dès la première ligne** de chaque gestionnaire | un inconnu qui trouve le bot n'obtient aucune réponse, pas même une erreur |
+
+### ⚙️ Variables d'environnement
+
+| Variable | Rôle | Défaut |
+|---|---|---|
+| `BOT_TOKEN` | jeton donné par @BotFather | — (obligatoire) |
+| `ALLOWED_CHAT` | identifiant du seul chat autorisé | — (obligatoire) |
+| `JF_TOKEN` / `JS_TOKEN` | clés API Jellyfin / Jellyseerr (lecture) | vide |
+| `PROM_URL`, `JF_URL`, `JS_URL`, `GPU_URL` | adresses internes des services | noms de conteneurs |
+| `BACKUP_DIR` | dossier des archives, monté en `:ro` | `/backups` |
+| `SERVER_NAME` | étiquette affichée dans les titres | `homelab` |
 
 ---
 
