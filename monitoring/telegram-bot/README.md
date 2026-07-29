@@ -163,10 +163,15 @@ Une tâche de fond compare **chaque minute** la liste des conteneurs actifs :
 
 - un conteneur absent sur **deux relevés consécutifs** (~2 min) → notification `🔴` ;
   s'il fait partie des services essentiels, c'est signalé,
-- son retour → notification `🟢`.
+- son retour → notification `🟢`,
+- un conteneur n'est surveillé qu'après **dix relevés consécutifs** de présence
+  (les services essentiels, eux, le sont d'emblée).
 
 Les deux relevés évitent le bruit : un simple redémarrage ou une mise à jour d'image
-ne déclenche pas d'alerte.
+ne déclenche pas d'alerte. Le délai de dix relevés, lui, écarte les conteneurs jetables :
+un `docker run --rm` qui vit trois secondes est vu par la sonde, puis disparaît — sans ce
+garde-fou, chaque commande d'administration déclenchait une fausse alerte (leçon apprise
+en recevant dix notifications pour des conteneurs aux noms générés automatiquement).
 
 ```
 🔴 Conteneur jellyfin hors ligne (~2 min) ⚠️ service essentiel

@@ -412,17 +412,29 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             raise
 
 
-async def watchdog(app: Application):
-    """Veille : alerte si un conteneur disparaît (2 relevés), puis à son retour.
+# Un conteneur doit avoir été vu ce nombre de relevés d'affilée (~minutes)
+# avant d'être surveillé : cela écarte les conteneurs jetables (docker run --rm)
+# qui vivent quelques secondes et déclencheraient de fausses alertes.
+STABLE_AFTER = 10
 
-    Deux relevés manqués (~2 min) avant d'alerter : cela évite le bruit lors
-    d'un simple redémarrage ou d'une mise à jour d'image.
-    """
-    seen, gone = set(), {}
+
+async def watchdog(app: Application):
+    """Veille : alerte si un conteneur DURABLE disparaît (2 relevés) puis à son retour."""
+    stable = {}      # nom -> relevés consécutifs où le conteneur est présent
+    watched = set()  # conteneurs jugés durables, donc surveillés
+    gone = {}        # nom -> relevés consécutifs d'absence
     while True:
         try:
             now = await running_names()
-            for n in sorted(seen - now):
+
+            # les services essentiels sont surveillés d'emblée,
+            # les autres seulement après STABLE_AFTER relevés consécutifs
+            for n in now:
+                stable[n] = stable.get(n, 0) + 1
+                if n in CORE or stable[n] >= STABLE_AFTER:
+                    watched.add(n)
+
+            for n in sorted(watched - now):
                 gone[n] = gone.get(n, 0) + 1
                 if gone[n] == 2:
                     critique = " ⚠️ <b>service essentiel</b>" if n in CORE else ""
@@ -430,15 +442,18 @@ async def watchdog(app: Application):
                         ALLOWED,
                         f"🔴 Conteneur <b>{n}</b> hors ligne (~2 min){critique}",
                         parse_mode=ParseMode.HTML)
+
             for n in sorted(now):
                 if gone.get(n, 0) >= 2:
                     await app.bot.send_message(
                         ALLOWED, f"🟢 Conteneur <b>{n}</b> de nouveau actif",
                         parse_mode=ParseMode.HTML)
                 gone.pop(n, None)
-            seen |= now
+
+            # oublier les conteneurs jetables : disparus avant d'être surveillés
+            for n in [k for k in stable if k not in now and k not in watched]:
+                stable.pop(n, None)
         except Exception:
-            # Prometheus indisponible ? on réessaiera au tour suivant.
             pass
         await asyncio.sleep(60)
 
